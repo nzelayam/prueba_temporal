@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Finanzas Atómicas</title>
+    
+    <!-- Estilos Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React y ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel para JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Reset básico para comportamiento de App Nativa */
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Evita que toda la página rebote */
+            background-color: #f8fafc; /* slate-50 */
+            touch-action: none; /* Deshabilita gestos del navegador por defecto fuera de zonas scrolleables */
+        }
+
+        #root {
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Utilidades */
+        input, select, button { outline: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .animate-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- ICONOS INCRUSTADOS (SVG Nativos) ---
+        const IconBase = ({ children, size = 24, className = "", ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+                {children}
+            </svg>
+        );
+
+        const Atom = (p) => <IconBase {...p}><circle cx="12" cy="12" r="1" /><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z" /><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z" /></IconBase>;
+        const Wallet = (p) => <IconBase {...p}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></IconBase>;
+        const Target = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></IconBase>;
+        const TrendingUp = (p) => <IconBase {...p}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></IconBase>;
+        const TrendingDown = (p) => <IconBase {...p}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" /></IconBase>;
+        const PlusCircle = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10" /><path d="M8 12h8" /><path d="M12 8v8" /></IconBase>;
+        const Plus = (p) => <IconBase {...p}><path d="M5 12h14" /><path d="M12 5v14" /></IconBase>;
+        const Home = (p) => <IconBase {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></IconBase>;
+        const CalendarIcon = (p) => <IconBase {...p}><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></IconBase>;
+        const List = (p) => <IconBase {...p}><line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line x1="8" x2="21" y1="18" y2="18" /><line x1="3" x2="3.01" y1="6" y2="6" /><line x1="3" x2="3.01" y1="12" y2="12" /><line x1="3" x2="3.01" y1="18" y2="18" /></IconBase>;
+        const Settings = (p) => <IconBase {...p}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></IconBase>;
+        const Edit3 = (p) => <IconBase {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></IconBase>;
+        const Trash2 = (p) => <IconBase {...p}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></IconBase>;
+        const X = (p) => <IconBase {...p}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></IconBase>;
+        const CheckCircle2 = (p) => <IconBase {...p}><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" /></IconBase>;
+        const AlertCircle = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></IconBase>;
+        const ChevronRight = (p) => <IconBase {...p}><path d="m9 18 6-6-6-6" /></IconBase>;
+        const ChevronUp = (p) => <IconBase {...p}><path d="m18 15-6-6-6 6" /></IconBase>;
+        const ChevronDown = (p) => <IconBase {...p}><path d="m6 9 6 6 6-6" /></IconBase>;
+        const Pencil = (p) => <IconBase {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></IconBase>;
+        const Repeat = (p) => <IconBase {...p}><path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /></IconBase>;
+        const CalendarDays = (p) => <IconBase {...p}><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /><path d="M8 14h.01" /><path d="M12 14h.01" /><path d="M16 14h.01" /><path d="M8 18h.01" /><path d="M12 18h.01" /><path d="M16 18h.01" /></IconBase>;
+        const Copy = (p) => <IconBase {...p}><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></IconBase>;
+        const Eraser = (p) => <IconBase {...p}><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" /><path d="M22 21H7" /><path d="m5 11 9 9" /></IconBase>;
+        const Globe = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></IconBase>;
+        const Flag = (p) => <IconBase {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" /></IconBase>;
+        const Save = (p) => <IconBase {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></IconBase>;
+        const Upload = (p) => <IconBase {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></IconBase>;
+        const Download = (p) => <IconBase {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></IconBase>;
+        const FileText = (p) => <IconBase {...p}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" x2="8" y1="13" y2="13" /><line x1="16" x2="8" y1="17" y2="17" /><line x1="10" x2="8" y1="9" y2="9" /></IconBase>;
+        const BookOpen = (p) => <IconBase {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></IconBase>;
+        const Info = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="16" y2="12" /><line x1="12" x2="12.01" y1="8" y2="8" /></IconBase>;
+
+
+        // --- DATOS Y CONFIGURACIÓN ---
+
+        const DEFAULT_CATEGORIAS_GASTOS = [
+            "Comida NZM", "Comida Familia", "Regalos", "Salud/médicos", 
+            "Vivienda", "Transporte", "Gastos personales", "Ropa", 
+            "Servicios", "Viajes", "Diversión", 
+            "Estudios", "Cumpleaños", "Inversiones", "Impuestos", "Hogar", "Otros"
+        ];
+
+        const DEFAULT_CATEGORIAS_INGRESOS = [
+            "Sueldo", "Bonificaciones", "Intereses", "Otros Ingresos"
+        ];
+
+        const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+        const PAISES_FERIADOS = {
+            'PE': { 
+                nombre: 'Perú', 
+                fechas: ['01-01', '05-01', '06-29', '07-28', '07-29', '08-30', '10-08', '11-01', '12-08', '12-25'] 
+            },
+            'MX': { 
+                nombre: 'México', 
+                fechas: ['01-01', '02-05', '03-21', '05-01', '09-16', '11-20', '12-25'] 
+            },
+            'CO': { 
+                nombre: 'Colombia', 
+                fechas: ['01-01', '05-01', '07-20', '08-07', '12-08', '12-25'] 
+            },
+            'CL': { 
+                nombre: 'Chile', 
+                fechas: ['01-01', '05-01', '05-21', '09-18', '09-19', '12-25'] 
+            },
+            'AR': { 
+                nombre: 'Argentina', 
+                fechas: ['01-01', '03-24', '04-02', '05-01', '05-25', '06-20', '07-09', '12-08', '12-25'] 
+            },
+            'ES': { 
+                nombre: 'España', 
+                fechas: ['01-01', '01-06', '05-01', '08-15', '10-12', '11-01', '12-06', '12-08', '12-25'] 
+            },
+            'OTRO': { nombre: 'Otro', fechas: [] }
+        };
+
+        const MONEDAS = [
+            { codigo: 'PEN', simbolo: 'S/' },
+            { codigo: 'USD', simbolo: '$' },
+            { codigo: 'EUR', simbolo: '€' },
+            { codigo: 'MXN', simbolo: '$' },
+            { codigo: 'COP', simbolo: '$' },
+            { codigo: 'CLP', simbolo: '$' },
+        ];
+
+        // --- UTILIDADES ---
+
+        const formatearDinero = (monto, monedaCfg) => {
+            return new Intl.NumberFormat('es-PE', { 
+                style: 'currency', 
+                currency: monedaCfg.codigo,
+                currencyDisplay: 'narrowSymbol'
+            }).format(monto).replace(monedaCfg.codigo, monedaCfg.simbolo); 
+        };
+
+        const obtenerDiasDelMes = (year, month) => {
+            const date = new Date(year, month, 1);
+            const days = [];
+            while (date.getMonth() === month) {
+                days.push(new Date(date));
+                date.setDate(date.getDate() + 1);
+            }
+            return days;
+        };
+
+        const esFeriado = (fechaObj, codigoPais) => {
+            if (!PAISES_FERIADOS[codigoPais]) return false;
+            const mes = (fechaObj.getMonth() + 1).toString().padStart(2, '0');
+            const dia = fechaObj.getDate().toString().padStart(2, '0');
+            const key = `${mes}-${dia}`;
+            return PAISES_FERIADOS[codigoPais].fechas.includes(key);
+        };
+
+        // --- COMPONENTES UI ---
+
+        const Card = ({ children, className = "" }) => (
+            <div className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>
+                {children}
+            </div>
+        );
+
+        const Toast = ({ message, show, type }) => {
+            if (!show) return null;
+            return (
+                <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-in ${type === 'error' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-white'}`}>
+                    {type === 'error' ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
+                    <span className="font-medium text-sm">{message}</span>
+                </div>
+            );
+        };
+
+        const ConfirmModal = ({ show, message, onConfirm, onCancel }) => {
+            if (!show) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 transform transition-all scale-100">
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">¿Estás seguro?</h3>
+                        <p className="text-slate-500 mb-6">{message}</p>
+                        <div className="flex gap-3">
+                            <button onClick={onCancel} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
+                            <button onClick={onConfirm} className="flex-1 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-lg shadow-rose-200">Confirmar</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const PromptModal = ({ show, title, initialValue, onConfirm, onCancel }) => {
+            const [value, setValue] = useState(initialValue);
+            useEffect(() => { setValue(initialValue); }, [initialValue, show]);
+            if (!show) return null;
+
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 transform transition-all scale-100">
+                        <h3 className="text-lg font-bold text-slate-900 mb-4">{title}</h3>
+                        <input autoFocus type="text" value={value} onChange={(e) => setValue(e.target.value)} className="w-full p-3 border border-slate-200 rounded-xl mb-6 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-lg" />
+                        <div className="flex gap-3">
+                            <button onClick={onCancel} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
+                            <button onClick={() => { if(value.trim()) onConfirm(value); }} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const InfoModal = ({ show, onClose, title, content }) => {
+            if (!show) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-0 overflow-hidden transform transition-all scale-100 max-h-[90vh] flex flex-col">
+                         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-lg text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="p-2 bg-slate-200 rounded-full hover:bg-slate-300"><X size={20}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto">
+                            {content}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const GraficoCurvas = ({ datosPlan, datosReal, dias }) => {
+            if (!datosPlan || datosPlan.length === 0) return (
+                <div className="h-40 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg text-sm italic">
+                    Falta definir plan mensual
+                </div>
+            );
+
+            const maxVal = Math.max(datosPlan[datosPlan.length - 1] || 0, datosReal[datosReal.length - 1] || 0) * 1.1; 
+            const width = 300;
+            const height = 150;
+            
+            const getPoints = (data) => data.map((val, index) => `${(index / (dias - 1)) * width},${height - ((val / maxVal || 1) * height)}`).join(' ');
+
+            return (
+                <div className="w-full overflow-hidden">
+                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-40">
+                        <line x1="0" y1={height} x2={width} y2={height} stroke="#e2e8f0" strokeWidth="1" />
+                        <line x1="0" y1="0" x2="0" y2={height} stroke="#e2e8f0" strokeWidth="1" />
+                        <polyline points={getPoints(datosPlan)} fill="none" stroke="#94a3b8" strokeWidth="2" strokeDasharray="4"/>
+                        <polyline points={getPoints(datosReal)} fill="none" stroke={datosReal[datosReal.length-1] > datosPlan[datosReal.length-1] ? "#f43f5e" : "#10b981"} strokeWidth="3" />
+                    </svg>
+                </div>
+            );
+        };
+
+        // --- VISTAS ---
+
+        const VistaResumen = ({ resumen, datosCurvas, planMesSeleccionado, onIrAPlan, planMensual, transacciones, monedaCfg, metaAhorro }) => {
+            const analisis = useMemo(() => {
+                const planDelMes = planMensual[planMesSeleccionado] || {};
+                const categorias = new Set();
+                const dataCat = {};
+
+                const hoy = new Date();
+                const esMesActual = hoy.toISOString().slice(0, 7) === planMesSeleccionado;
+                const diaHoy = hoy.getDate();
+
+                Object.entries(planDelMes).forEach(([fechaStr, diaData]) => {
+                    const diaNum = parseInt(fechaStr.split('-')[2]);
+                    Object.entries(diaData).forEach(([cat, monto]) => {
+                        categorias.add(cat);
+                        if (!dataCat[cat]) dataCat[cat] = { planTotal: 0, planHoy: 0, realHoy: 0 };
+                        dataCat[cat].planTotal += monto;
+                        if (esMesActual) {
+                            if (diaNum <= diaHoy) dataCat[cat].planHoy += monto;
+                        } else if (planMesSeleccionado < hoy.toISOString().slice(0, 7)) {
+                            dataCat[cat].planHoy += monto;
+                        }
+                    });
+                });
+
+                transacciones
+                    .filter(t => t.fecha.startsWith(planMesSeleccionado) && t.tipo === 'gasto')
+                    .forEach(t => {
+                        categorias.add(t.categoria);
+                        if (!dataCat[t.categoria]) dataCat[t.categoria] = { planTotal: 0, planHoy: 0, realHoy: 0 };
+                        dataCat[t.categoria].realHoy += parseFloat(t.monto);
+                    });
+
+                const lista = Array.from(categorias).map(cat => {
+                    const d = dataCat[cat];
+                    return { 
+                        categoria: cat, 
+                        planTotal: d.planTotal,
+                        planHoy: d.planHoy,
+                        realHoy: d.realHoy,
+                        desvioHoy: d.planHoy - d.realHoy,
+                        restanteMes: d.planTotal - d.realHoy
+                    };
+                }).sort((a, b) => b.realHoy - a.realHoy);
+
+                const totalDesvio = lista.reduce((acc, curr) => acc + curr.desvioHoy, 0);
+                const totalRestante = lista.reduce((acc, curr) => acc + curr.restanteMes, 0);
+
+                return { lista, totalDesvio, totalRestante };
+            }, [planMensual, transacciones, planMesSeleccionado]);
+
+            return (
+                <div className="space-y-6 pb-24">
+                    <div className="grid gap-4">
+                        <div className="bg-gradient-to-br from-blue-800 to-blue-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-2">
+                                    <p className="text-blue-100 text-xs font-medium uppercase tracking-wider">Cuenta Normal (+Efectivo)</p>
+                                    <Wallet className="text-blue-200" size={18} />
+                                </div>
+                                <h2 className="text-3xl font-bold tracking-tight">{formatearDinero(resumen.saldoNormal, monedaCfg)}</h2>
+                                <div className="mt-4 flex gap-4 text-xs text-blue-100/70">
+                                    <span>Ingresos: +{formatearDinero(resumen.ingresosMes, monedaCfg)}</span>
+                                    <span>Gastos: -{formatearDinero(resumen.gastosMes, monedaCfg)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-2">
+                                    <p className="text-blue-50 text-xs font-medium uppercase tracking-wider">Cuenta de Ahorros</p>
+                                    <Target className="text-blue-100" size={18} />
+                                </div>
+                                <h2 className="text-3xl font-bold">{formatearDinero(resumen.saldoAhorro, monedaCfg)}</h2>
+                                <div className="mt-4 text-xs text-blue-100">
+                                    Has ahorrado {formatearDinero(resumen.ahorroMes, monedaCfg)} este mes
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {metaAhorro && metaAhorro.nombre && (
+                        <Card className="border-l-4 border-l-sky-500">
+                            <div className="flex justify-between items-end mb-2">
+                                <div>
+                                    <p className="text-xs text-sky-600 font-bold uppercase tracking-wider flex items-center gap-1">
+                                        <Flag size={12} /> Meta: {metaAhorro.nombre}
+                                    </p>
+                                    <p className="text-xs text-gray-400">Para el {metaAhorro.fecha}</p>
+                                </div>
+                                <span className="font-bold text-gray-800">{formatearDinero(metaAhorro.monto, monedaCfg)}</span>
+                            </div>
+                            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-sky-500 transition-all duration-1000" style={{ width: `${Math.min(100, (resumen.saldoAhorro / metaAhorro.monto) * 100)}%` }} />
+                            </div>
+                            <p className="text-right text-xs text-sky-600 mt-1 font-medium">
+                                {((resumen.saldoAhorro / metaAhorro.monto) * 100).toFixed(1)}% completado
+                            </p>
+                        </Card>
+                    )}
+
+                    <Card>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <TrendingUp className="text-blue-600" size={20}/> Evolución Mensual
+                            </h3>
+                            <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">{planMesSeleccionado}</span>
+                        </div>
+                        <GraficoCurvas datosPlan={datosCurvas.seriePlan} datosReal={datosCurvas.serieReal} dias={datosCurvas.dias} />
+                        {datosCurvas.seriePlan.length > 0 ? (
+                            <div className="mt-4 text-center">
+                                <p className="text-sm text-slate-600">
+                                    <span className="font-semibold">Planificado Total: </span> {formatearDinero(datosCurvas.seriePlan[datosCurvas.seriePlan.length-1], monedaCfg)}
+                                </p>
+                            </div>
+                        ) : (
+                            <button onClick={onIrAPlan} className="w-full mt-4 py-2 text-sm text-blue-600 font-medium bg-blue-50 rounded-lg">Definir Plan</button>
+                        )}
+                    </Card>
+
+                    {analisis.lista.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-end px-1">
+                                <h3 className="font-bold text-slate-800">Análisis al Día</h3>
+                                <span className={`text-xs font-bold px-2 py-1 rounded ${analisis.totalDesvio < 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                    {analisis.totalDesvio < 0 ? 'Sobregiro Global: ' : 'A favor Global: '} 
+                                    {formatearDinero(Math.abs(analisis.totalDesvio), monedaCfg)}
+                                </span>
+                            </div>
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                                <div className="grid grid-cols-12 gap-1 p-3 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-100 tracking-tighter">
+                                    <div className="col-span-4">Categoría</div>
+                                    <div className="col-span-2 text-right">Real<br/>(Hoy)</div>
+                                    <div className="col-span-2 text-right">Plan<br/>(Hoy)</div>
+                                    <div className="col-span-2 text-right">Desvío<br/>(Hoy)</div>
+                                    <div className="col-span-2 text-right">Restante<br/>(Mes)</div>
+                                </div>
+                                {analisis.lista.map((item) => (
+                                    <div key={item.categoria} className="grid grid-cols-12 gap-1 p-3 border-b border-slate-50 text-xs hover:bg-slate-50 items-center">
+                                        <div className="col-span-4 font-medium text-slate-700 truncate" title={item.categoria}>{item.categoria}</div>
+                                        <div className="col-span-2 text-right text-slate-800 font-bold">{Math.round(item.realHoy)}</div>
+                                        <div className="col-span-2 text-right text-slate-400">{Math.round(item.planHoy)}</div>
+                                        <div className={`col-span-2 text-right font-bold ${item.desvioHoy < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                            {item.desvioHoy > 0 ? '+' : ''}{Math.round(item.desvioHoy)}
+                                        </div>
+                                        <div className="col-span-2 text-right text-blue-700 font-medium bg-blue-50 rounded px-1">
+                                            {Math.round(item.restanteMes)}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div className="p-3 bg-slate-50 text-xs flex justify-between items-center text-slate-500">
+                                    <span>Total restante del mes:</span>
+                                    <span className="font-bold text-slate-800 text-sm">{formatearDinero(analisis.totalRestante, monedaCfg)}</span>
+                                </div>
+                            </div>
+                            <div className="text-[10px] text-center text-slate-400">
+                                * "Desvío (Hoy)" compara lo que deberías haber gastado hasta hoy vs. la realidad.
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const VistaAgregar = ({ monto, setMonto, desc, setDesc, cat, setCat, tipo, setTipo, fecha, setFecha, categoriasGastos, categoriasIngresos, onGuardar, monedaCfg, historialSugerencias }) => (
+            <div className="flex flex-col h-full pb-20">
+                <h2 className="text-2xl font-bold text-slate-800 mb-6">Nuevo Movimiento</h2>
+                <form onSubmit={onGuardar} className="space-y-5">
+                    <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-xl">
+                        <button type="button" onClick={() => setTipo('gasto')} className={`py-3 rounded-lg text-sm font-bold transition-all ${tipo === 'gasto' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}>Gasto</button>
+                        <button type="button" onClick={() => setTipo('ingreso')} className={`py-3 rounded-lg text-sm font-bold transition-all ${tipo === 'ingreso' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}>Ingreso</button>
+                        <button type="button" onClick={() => setTipo('transferencia_ahorro')} className={`py-3 rounded-lg text-sm font-bold transition-all ${tipo === 'transferencia_ahorro' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Ahorrar</button>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha</label>
+                        <div className="flex gap-2">
+                            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="flex-1 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" required />
+                            <button type="button" onClick={() => { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); setFecha(yesterday.toISOString().split('T')[0]); }} className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Ayer</button>
+                            <button type="button" onClick={() => setFecha(new Date().toISOString().split('T')[0])} className="px-4 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl text-xs hover:bg-blue-100">Hoy</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Monto</label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl">{monedaCfg.simbolo}</span>
+                            <input type="number" step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} className="w-full text-3xl font-bold text-slate-800 p-4 pl-12 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0.00" required inputMode="decimal" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Concepto</label>
+                        <input type="text" list="sugerencias-desc" value={desc} onChange={(e) => setDesc(e.target.value)} className="w-full p-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: Almuerzo, Taxi, Sueldo..." required />
+                        <datalist id="sugerencias-desc">
+                            {historialSugerencias.map((s, idx) => <option key={idx} value={s} />)}
+                        </datalist>
+                    </div>
+
+                    {tipo !== 'transferencia_ahorro' && (
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoría</label>
+                            <select value={cat} onChange={(e) => setCat(e.target.value)} className="w-full p-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-no-repeat bg-right">
+                                {tipo === 'gasto' ? categoriasGastos.map(c => <option key={c} value={c}>{c}</option>) : categoriasIngresos.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                    )}
+
+                    <button type="submit" className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg transform active:scale-95 transition-all ${tipo === 'gasto' ? 'bg-rose-600 hover:bg-rose-700' : tipo === 'ingreso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-sky-600 hover:bg-sky-700'}`}>
+                        {tipo === 'transferencia_ahorro' ? 'Transferir a Ahorros' : 'Guardar Movimiento'}
+                    </button>
+                </form>
+            </div>
+        );
+
+        const VistaHistorial = ({ transacciones, onBorrar, monedaCfg }) => (
+            <div className="pb-20">
+                <h2 className="text-2xl font-bold text-slate-800 mb-6">Movimientos</h2>
+                <div className="space-y-3">
+                    {transacciones.length === 0 && <p className="text-center text-slate-400 py-10">Sin movimientos aún</p>}
+                    {transacciones.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map((t) => (
+                        <div key={t.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-full ${t.tipo === 'gasto' ? 'bg-rose-50 text-rose-600' : t.tipo === 'ingreso' ? 'bg-emerald-50 text-emerald-600' : 'bg-sky-50 text-sky-600'}`}>
+                                    {t.tipo === 'gasto' ? <TrendingDown size={16} /> : t.tipo === 'ingreso' ? <TrendingUp size={16} /> : <Target size={16}/>}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-slate-800 text-sm">{t.descripcion}</p>
+                                    <div className="text-xs text-slate-400">{t.fecha} • {t.categoria || 'Transferencia'}</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className={`font-bold text-sm ${t.tipo === 'gasto' ? 'text-rose-600' : t.tipo === 'ingreso' ? 'text-emerald-600' : 'text-sky-600'}`}>
+                                    {t.tipo === 'gasto' ? '-' : ''}{formatearDinero(t.monto, monedaCfg)}
+                                </p>
+                                <button onClick={() => onBorrar(t.id)} className="text-slate-300 p-1 hover:text-rose-500"><Trash2 size={12}/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        const VistaAjustes = ({ categoriasGastos, setCategoriasGastos, categoriasIngresos, setCategoriasIngresos, saldos, setSaldos, pais, setPais, moneda, setMoneda, metaAhorro, setMetaAhorro, onRequestConfirm, onRequestRename, onShowToast, onImport, onExport, onShowHelp, onShowAbout }) => {
+            const [nuevaCat, setNuevaCat] = useState('');
+            const [tabCat, setTabCat] = useState('gasto'); 
+
+            const agregarCategoria = () => {
+                if (!nuevaCat.trim()) return;
+                if (tabCat === 'gasto') setCategoriasGastos([...categoriasGastos, nuevaCat]);
+                else setCategoriasIngresos([...categoriasIngresos, nuevaCat]);
+                setNuevaCat('');
+                onShowToast("Categoría agregada");
+            };
+
+            const eliminarCategoria = (cat, tipo) => {
+                onRequestConfirm(`¿Deseas eliminar "${cat}"?`, () => {
+                    if (tipo === 'gasto') setCategoriasGastos(prev => prev.filter(c => c !== cat));
+                    else setCategoriasIngresos(prev => prev.filter(c => c !== cat));
+                    onShowToast("Categoría eliminada");
+                });
+            };
+
+            const solicitarRenombrar = (cat, tipo) => {
+                onRequestRename(`Editar "${cat}"`, cat, (nuevoNombre) => {
+                    const lista = tipo === 'gasto' ? categoriasGastos : categoriasIngresos;
+                    if (lista.includes(nuevoNombre)) { onShowToast("Nombre existente", "error"); return; }
+                    if (tipo === 'gasto') setCategoriasGastos(prev => prev.map(c => c === cat ? nuevoNombre : c));
+                    else setCategoriasIngresos(prev => prev.map(c => c === cat ? nuevoNombre : c));
+                    onShowToast("Categoría actualizada");
+                }, cat, tipo);
+            };
+
+            const moverCategoria = (index, direccion) => {
+                const esGasto = tabCat === 'gasto';
+                const lista = esGasto ? [...categoriasGastos] : [...categoriasIngresos];
+                const setter = esGasto ? setCategoriasGastos : setCategoriasIngresos;
+                const nuevaPos = index + direccion;
+                if (nuevaPos >= 0 && nuevaPos < lista.length) {
+                    [lista[index], lista[nuevaPos]] = [lista[nuevaPos], lista[index]];
+                    setter(lista);
+                }
+            };
+
+            const listaActual = tabCat === 'gasto' ? categoriasGastos : categoriasIngresos;
+
+            return (
+                <div className="pb-24 space-y-6">
+                    <h2 className="text-2xl font-bold text-slate-800">Ajustes</h2>
+
+                    <Card>
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><BookOpen size={18} /> Ayuda e Información</h3>
+                        <div className="flex gap-3">
+                            <button onClick={onShowHelp} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 hover:bg-slate-200">
+                                <BookOpen size={20} className="text-blue-600"/> <span>Tutorial y FAQ</span>
+                            </button>
+                            <button onClick={onShowAbout} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 hover:bg-slate-200">
+                                <Info size={20} className="text-slate-600"/> <span>Acerca de</span>
+                            </button>
+                        </div>
+                    </Card>
+                    
+                    <Card>
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><FileText size={18} /> Gestión de Datos</h3>
+                        <div className="flex gap-3">
+                            <button onClick={onExport} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 hover:bg-slate-200">
+                                <Download size={20} className="text-blue-600"/> <span>Exportar Backup</span>
+                            </button>
+                            <label className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 hover:bg-slate-200 cursor-pointer">
+                                <Upload size={20} className="text-emerald-600"/> <span>Importar Backup</span>
+                                <input type="file" accept=".finat" onChange={onImport} className="hidden" />
+                            </label>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2 text-center">Guarda tu archivo .finat en un lugar seguro.</p>
+                    </Card>
+
+                    <Card>
+                        <h3 className="font-bold text-sky-600 mb-4 flex items-center gap-2"><Flag size={18} /> Meta de Ahorro</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Nombre de la Meta</label>
+                                <input type="text" value={metaAhorro.nombre} onChange={(e) => setMetaAhorro({...metaAhorro, nombre: e.target.value})} placeholder="Ej: Viaje a Europa" className="w-full mt-1 p-2 bg-slate-50 rounded border border-slate-200"/>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Monto Objetivo</label>
+                                    <input type="number" value={metaAhorro.monto} onChange={(e) => setMetaAhorro({...metaAhorro, monto: parseFloat(e.target.value) || 0})} className="w-full mt-1 p-2 bg-slate-50 rounded border border-slate-200"/>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Fecha Límite</label>
+                                    <input type="date" value={metaAhorro.fecha} onChange={(e) => setMetaAhorro({...metaAhorro, fecha: e.target.value})} className="w-full mt-1 p-2 bg-slate-50 rounded border border-slate-200"/>
+                                </div>
+                            </div>
+                            <button onClick={() => onShowToast("Meta guardada")} className="w-full bg-sky-600 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 mt-2">
+                                <Save size={16}/> Guardar Meta
+                            </button>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Globe size={18} /> Región y Moneda</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase block mb-1">País (Feriados)</label>
+                                <select value={pais} onChange={(e) => setPais(e.target.value)} className="w-full p-2 bg-slate-50 rounded border border-slate-200">
+                                    {Object.entries(PAISES_FERIADOS).map(([code, data]) => (
+                                        <option key={code} value={code}>{data.nombre}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase block mb-1">Moneda</label>
+                                <select value={JSON.stringify(moneda)} onChange={(e) => setMoneda(JSON.parse(e.target.value))} className="w-full p-2 bg-slate-50 rounded border border-slate-200">
+                                    {MONEDAS.map((m) => (
+                                        <option key={m.codigo} value={JSON.stringify(m)}>{m.codigo} ({m.simbolo})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Wallet size={18} /> Saldos Iniciales</h3>
+                        <div className="grid gap-4">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Cuenta Normal</label>
+                                <input type="number" value={saldos.normal} onChange={(e) => setSaldos({...saldos, normal: parseFloat(e.target.value) || 0})} className="w-full mt-1 p-2 bg-slate-50 rounded border border-slate-200" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 uppercase">Cuenta Ahorros</label>
+                                <input type="number" value={saldos.ahorro} onChange={(e) => setSaldos({...saldos, ahorro: parseFloat(e.target.value) || 0})} className="w-full mt-1 p-2 bg-slate-50 rounded border border-slate-200" />
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><List size={18} /> Categorías</h3>
+                        <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
+                            <button onClick={() => setTabCat('gasto')} className={`flex-1 py-2 text-xs font-bold rounded ${tabCat === 'gasto' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Gastos</button>
+                            <button onClick={() => setTabCat('ingreso')} className={`flex-1 py-2 text-xs font-bold rounded ${tabCat === 'ingreso' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Ingresos</button>
+                        </div>
+                        <div className="flex gap-2 mb-4">
+                            <input type="text" value={nuevaCat} onChange={(e) => setNuevaCat(e.target.value)} placeholder="Nueva categoría..." className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" />
+                            <button onClick={agregarCategoria} className="bg-slate-800 text-white p-2 rounded-lg"><Plus size={20} /></button>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                            {listaActual.map((cat, index) => (
+                                <div key={`${cat}-${index}`} className="flex justify-between items-center p-2 bg-slate-50 rounded border border-slate-100 text-sm group">
+                                    <span className="truncate flex-1 font-medium text-slate-700">{cat}</span>
+                                    <div className="flex items-center gap-1">
+                                        <div className="flex flex-col mr-2">
+                                            <button onClick={() => moverCategoria(index, -1)} disabled={index === 0} className="p-0.5 text-slate-400 hover:text-blue-600 disabled:opacity-20"><ChevronUp size={14}/></button>
+                                            <button onClick={() => moverCategoria(index, 1)} disabled={index === listaActual.length - 1} className="p-0.5 text-slate-400 hover:text-blue-600 disabled:opacity-20"><ChevronDown size={14}/></button>
+                                        </div>
+                                        <button onClick={() => solicitarRenombrar(cat, tabCat)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"><Pencil size={16}/></button>
+                                        <button onClick={() => eliminarCategoria(cat, tabCat)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors"><Trash2 size={16}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+
+        const VistaPlanificacion = ({ planMesSeleccionado, setPlanMesSeleccionado, planMensual, setPlanMensual, categoriasGastos, onShowToast, onRequestConfirm, pais, monedaCfg }) => {
+            const [tipoPlanificacion, setTipoPlanificacion] = useState('patron');
+            const [patronCat, setPatronCat] = useState(categoriasGastos[0]);
+            const [patronMonto, setPatronMonto] = useState('');
+            const [patronDias, setPatronDias] = useState([1, 2, 3, 4, 5]);
+            const [fechaUnica, setFechaUnica] = useState(new Date().toISOString().split('T')[0]);
+            const [diaEditando, setDiaEditando] = useState(null);
+
+            useEffect(() => { if(!categoriasGastos.includes(patronCat)) setPatronCat(categoriasGastos[0]); }, [categoriasGastos]);
+
+            const aplicarPlan = () => {
+                if (!patronMonto) return;
+                const monto = parseFloat(patronMonto);
+                let targetMesKey = planMesSeleccionado;
+                if (tipoPlanificacion === 'unico') targetMesKey = fechaUnica.slice(0, 7);
+                
+                const nuevoPlanMes = { ...(planMensual[targetMesKey] || {}) };
+
+                if (tipoPlanificacion === 'patron') {
+                    const [year, month] = planMesSeleccionado.split('-').map(Number);
+                    const dias = obtenerDiasDelMes(year, month - 1);
+                    dias.forEach(d => {
+                        if (patronDias.includes(d.getDay())) {
+                            const fechaStr = d.toISOString().split('T')[0];
+                            if (!nuevoPlanMes[fechaStr]) nuevoPlanMes[fechaStr] = {};
+                            nuevoPlanMes[fechaStr][patronCat] = monto;
+                        }
+                    });
+                    onShowToast(`Patrón aplicado`);
+                } else {
+                    if (!nuevoPlanMes[fechaUnica]) nuevoPlanMes[fechaUnica] = {};
+                    nuevoPlanMes[fechaUnica][patronCat] = monto;
+                    onShowToast(`Gasto puntual añadido`);
+                }
+                setPlanMensual({ ...planMensual, [targetMesKey]: nuevoPlanMes });
+            };
+
+            const limpiarMes = () => {
+                onRequestConfirm("¿Borrar todo el plan de este mes?", () => {
+                    const nuevoPlan = { ...planMensual };
+                    delete nuevoPlan[planMesSeleccionado];
+                    setPlanMensual(nuevoPlan);
+                    onShowToast("Mes limpiado");
+                });
+            };
+
+            const copiarMesAnterior = () => {
+                const [year, month] = planMesSeleccionado.split('-').map(Number);
+                let prevMonth = month - 1;
+                let prevYear = year;
+                if (prevMonth === 0) { prevMonth = 12; prevYear = year - 1; }
+                const prevKey = `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
+
+                if (!planMensual[prevKey]) {
+                    onShowToast("No hay plan en el mes anterior", "error");
+                    return;
+                }
+
+                onRequestConfirm(`¿Sobrescribir con plan de ${prevKey}?`, () => {
+                    const nuevoPlanMes = {};
+                    const diasPrev = planMensual[prevKey];
+                    Object.keys(diasPrev).forEach(dateStr => {
+                        const dateObj = new Date(dateStr + 'T00:00:00'); 
+                        const diaNum = dateObj.getDate();
+                        const nuevaFecha = new Date(year, month - 1, diaNum);
+                        if (nuevaFecha.getMonth() === month - 1) {
+                            const nuevaFechaStr = nuevaFecha.toISOString().split('T')[0];
+                            nuevoPlanMes[nuevaFechaStr] = { ...diasPrev[dateStr] };
+                        }
+                    });
+                    setPlanMensual({ ...planMensual, [planMesSeleccionado]: nuevoPlanMes });
+                    onShowToast("Plan copiado exitosamente");
+                });
+            };
+
+            const toggleDiaPatron = (diaIdx) => {
+                if (patronDias.includes(diaIdx)) setPatronDias(patronDias.filter(d => d !== diaIdx));
+                else setPatronDias([...patronDias, diaIdx]);
+            };
+
+            const guardarEdicionManual = (fecha, cat, valor) => {
+                const nuevoPlanMes = { ...(planMensual[planMesSeleccionado] || {}) };
+                if (!nuevoPlanMes[fecha]) nuevoPlanMes[fecha] = {};
+                if (valor === '' || parseFloat(valor) === 0) delete nuevoPlanMes[fecha][cat];
+                else nuevoPlanMes[fecha][cat] = parseFloat(valor);
+                setPlanMensual({ ...planMensual, [planMesSeleccionado]: nuevoPlanMes });
+            };
+
+            return (
+                <div className="pb-24 space-y-6">
+                    <div className="flex items-center justify-between sticky top-0 bg-slate-50 py-2 z-10">
+                        <h2 className="text-2xl font-bold text-slate-800">Plan Mensual</h2>
+                        <div className="flex gap-2">
+                            <button onClick={limpiarMes} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-100" title="Borrar todo"><Eraser size={20}/></button>
+                            <button onClick={copiarMesAnterior} className="p-2 text-blue-500 bg-blue-50 rounded-lg hover:bg-blue-100" title="Copiar anterior"><Copy size={20}/></button>
+                            <input type="month" value={planMesSeleccionado} onChange={(e) => setPlanMesSeleccionado(e.target.value)} className="bg-white border border-slate-300 text-sm rounded-lg p-2 outline-none shadow-sm" />
+                        </div>
+                    </div>
+
+                    <Card>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2"><Edit3 size={18} /> Planificar Gasto</h3>
+                            <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                                <button onClick={() => setTipoPlanificacion('patron')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${tipoPlanificacion === 'patron' ? 'bg-white shadow text-slate-800' : 'text-slate-400'}`}>Repetir</button>
+                                <button onClick={() => setTipoPlanificacion('unico')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${tipoPlanificacion === 'unico' ? 'bg-white shadow text-slate-800' : 'text-slate-400'}`}>Único</button>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Categoría</label>
+                                    <select value={patronCat} onChange={(e) => setPatronCat(e.target.value)} className="w-full mt-1 p-2 bg-slate-50 rounded-lg border border-slate-200 outline-none text-sm">
+                                        {categoriasGastos.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div className="w-1/3">
+                                    <label className="text-xs font-semibold text-slate-500 uppercase">Monto</label>
+                                    <input type="number" value={patronMonto} onChange={(e) => setPatronMonto(e.target.value)} className="w-full mt-1 p-2 bg-slate-50 rounded-lg border border-slate-200 outline-none font-bold text-sm" placeholder="0" />
+                                </div>
+                            </div>
+                            <div>
+                                {tipoPlanificacion === 'patron' ? (
+                                    <>
+                                        <label className="text-xs font-semibold text-slate-500 uppercase mb-2 block">Días a aplicar</label>
+                                        <div className="flex justify-between gap-1 mb-2">
+                                            {DIAS_SEMANA.map((d, idx) => (
+                                                <button key={d} onClick={() => toggleDiaPatron(idx)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${patronDias.includes(idx) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{d[0]}</button>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setPatronDias([1,2,3,4,5])} className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">Lun-Vie</button>
+                                            <button onClick={() => setPatronDias([0,6])} className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">Fines</button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <label className="text-xs font-semibold text-slate-500 uppercase mb-2 block">Fecha</label>
+                                        <input type="date" value={fechaUnica} onChange={(e) => setFechaUnica(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium outline-none" />
+                                    </>
+                                )}
+                            </div>
+                            <button onClick={aplicarPlan} className="w-full bg-slate-800 text-white py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2">
+                                {tipoPlanificacion === 'patron' ? <Repeat size={16} /> : <CalendarDays size={16} />} {tipoPlanificacion === 'patron' ? 'Aplicar Patrón' : 'Añadir Gasto'}
+                            </button>
+                        </div>
+                    </Card>
+
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-700 ml-1">Calendario</h3>
+                        {obtenerDiasDelMes(parseInt(planMesSeleccionado.split('-')[0]), parseInt(planMesSeleccionado.split('-')[1])-1).map(date => {
+                            const dateStr = date.toISOString().split('T')[0];
+                            const planDia = planMensual[planMesSeleccionado]?.[dateStr] || {};
+                            const totalDia = Object.values(planDia).reduce((a, b) => a + b, 0);
+                            const categoriasDia = Object.keys(planDia);
+                            const esFeriadoDia = esFeriado(date, pais);
+                            const esFinde = date.getDay() === 0 || date.getDay() === 6;
+                            
+                            let bgClass = "bg-white";
+                            let borderClass = "border-slate-100";
+                            if (esFeriadoDia) { bgClass = "bg-rose-50"; borderClass = "border-rose-100"; }
+                            else if (esFinde) { bgClass = "bg-blue-50"; borderClass = "border-blue-100"; }
+
+                            return (
+                                <div key={dateStr} onClick={() => setDiaEditando(dateStr)} className={`${bgClass} p-3 rounded-lg border ${borderClass} flex justify-between items-center text-sm active:bg-slate-100 cursor-pointer transition-colors`}>
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className={`flex flex-col items-center justify-center rounded p-1 w-12 text-center ${esFeriadoDia ? 'bg-rose-100 text-rose-600' : esFinde ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                                            <span className="text-[10px] uppercase font-bold">{date.toLocaleDateString('es-PE', {weekday: 'short'})}</span>
+                                            <span className="text-lg font-bold leading-none">{date.getDate()}</span>
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            {esFeriadoDia && <span className="text-[10px] text-rose-500 font-bold uppercase mb-0.5">Feriado</span>}
+                                            <span className="text-xs text-slate-500 truncate">{categoriasDia.length > 0 ? categoriasDia.join(', ') : 'Sin planificar'}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`font-bold ${totalDia > 0 ? 'text-slate-700' : 'text-slate-300'}`}>{formatearDinero(totalDia, monedaCfg)}</span>
+                                        <ChevronRight size={16} className="text-slate-300" />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {diaEditando && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+                            <div className="bg-white w-full max-w-md h-[80vh] sm:h-auto sm:rounded-2xl rounded-t-2xl flex flex-col shadow-2xl">
+                                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                                    <div><h3 className="font-bold text-lg">Editar Plan</h3><p className="text-xs text-slate-500">{diaEditando}</p></div>
+                                    <button onClick={() => setDiaEditando(null)} className="p-2 bg-slate-200 rounded-full"><X size={20}/></button>
+                                </div>
+                                <div className="overflow-y-auto p-4 space-y-3 flex-1">
+                                    {categoriasGastos.map(cat => (
+                                        <div key={cat} className="flex items-center justify-between p-2 border border-slate-100 rounded-lg hover:bg-slate-50">
+                                            <label className="text-sm font-medium text-slate-700 flex-1">{cat}</label>
+                                            <div className="relative w-32">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{monedaCfg.simbolo}</span>
+                                                <input type="number" placeholder="0" value={planMensual[planMesSeleccionado]?.[diaEditando]?.[cat] || ''} onChange={(e) => guardarEdicionManual(diaEditando, cat, e.target.value)} className="w-full pl-6 p-2 bg-white border border-slate-200 rounded text-right font-bold text-slate-800 focus:border-blue-500 outline-none"/>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-4 border-t border-slate-100"><button onClick={() => setDiaEditando(null)} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold">Terminar Edición</button></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('resumen');
+            const [modalConfig, setModalConfig] = useState({ show: false, message: '', onConfirm: null });
+            const [promptConfig, setPromptConfig] = useState({ show: false, title: '', initialValue: '', onConfirm: null });
+            const [infoModalConfig, setInfoModalConfig] = useState({ show: false, title: '', content: null });
+            const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+
+            const [pais, setPais] = useState(() => localStorage.getItem('finanzas_pais') || 'PE');
+            const [moneda, setMoneda] = useState(() => {
+                const saved = localStorage.getItem('finanzas_moneda');
+                return saved ? JSON.parse(saved) : { codigo: 'PEN', simbolo: 'S/' };
+            });
+
+            const [categoriasGastos, setCategoriasGastos] = useState(() => {
+                const saved = localStorage.getItem('finanzas_cat_gastos');
+                return saved ? JSON.parse(saved) : DEFAULT_CATEGORIAS_GASTOS;
+            });
+            const [categoriasIngresos, setCategoriasIngresos] = useState(() => {
+                const saved = localStorage.getItem('finanzas_cat_ingresos');
+                return saved ? JSON.parse(saved) : DEFAULT_CATEGORIAS_INGRESOS;
+            });
+            const [saldosIniciales, setSaldosIniciales] = useState(() => {
+                const saved = localStorage.getItem('finanzas_saldos');
+                return saved ? JSON.parse(saved) : { normal: 1500, ahorro: 10000 };
+            });
+            const [transacciones, setTransacciones] = useState(() => {
+                const saved = localStorage.getItem('finanzas_transacciones');
+                return saved ? JSON.parse(saved) : [];
+            });
+            const [planMensual, setPlanMensual] = useState(() => {
+                const saved = localStorage.getItem('finanzas_plan');
+                return saved ? JSON.parse(saved) : {};
+            });
+            
+            const [metaAhorro, setMetaAhorro] = useState(() => {
+                const saved = localStorage.getItem('finanzas_meta');
+                return saved ? JSON.parse(saved) : { nombre: '', monto: 0, fecha: '' };
+            });
+
+            const [nuevoMonto, setNuevoMonto] = useState('');
+            const [nuevaDesc, setNuevaDesc] = useState('');
+            const [nuevaCat, setNuevaCat] = useState(categoriasGastos[0]);
+            const [nuevoTipo, setNuevoTipo] = useState('gasto');
+            const [nuevaFecha, setNuevaFecha] = useState(new Date().toISOString().split('T')[0]);
+            
+            const [planMesSeleccionado, setPlanMesSeleccionado] = useState(new Date().toISOString().slice(0, 7));
+
+            const historialSugerencias = useMemo(() => {
+                const unicos = [...new Set(transacciones.map(t => t.descripcion))];
+                return unicos.slice(0, 50); 
+            }, [transacciones]);
+
+            useEffect(() => localStorage.setItem('finanzas_transacciones', JSON.stringify(transacciones)), [transacciones]);
+            useEffect(() => localStorage.setItem('finanzas_plan', JSON.stringify(planMensual)), [planMensual]);
+            useEffect(() => localStorage.setItem('finanzas_saldos', JSON.stringify(saldosIniciales)), [saldosIniciales]);
+            useEffect(() => localStorage.setItem('finanzas_cat_gastos', JSON.stringify(categoriasGastos)), [categoriasGastos]);
+            useEffect(() => localStorage.setItem('finanzas_cat_ingresos', JSON.stringify(categoriasIngresos)), [categoriasIngresos]);
+            useEffect(() => localStorage.setItem('finanzas_pais', pais), [pais]);
+            useEffect(() => localStorage.setItem('finanzas_moneda', JSON.stringify(moneda)), [moneda]);
+            useEffect(() => localStorage.setItem('finanzas_meta', JSON.stringify(metaAhorro)), [metaAhorro]);
+
+            useEffect(() => {
+                if (nuevoTipo === 'gasto' && !categoriasGastos.includes(nuevaCat)) setNuevaCat(categoriasGastos[0]);
+                if (nuevoTipo === 'ingreso' && !categoriasIngresos.includes(nuevaCat)) setNuevaCat(categoriasIngresos[0]);
+            }, [nuevoTipo, categoriasGastos, categoriasIngresos]);
+
+            const showNotification = (msg, type='success') => { setNotification({ show: true, message: msg, type }); setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000); };
+            const requestConfirmation = (message, action) => { setModalConfig({ show: true, message, onConfirm: action }); };
+            const requestRename = (title, initialValue, action, oldName, type) => {
+                const wrappedAction = (newName) => {
+                    action(newName);
+                    setTransacciones(prev => prev.map(t => { if (t.categoria === oldName && ((type === 'gasto' && t.tipo === 'gasto') || (type === 'ingreso' && t.tipo === 'ingreso'))) { return { ...t, categoria: newName }; } return t; }));
+                    setPlanMensual(prevPlan => {
+                        const newPlan = { ...prevPlan };
+                        Object.keys(newPlan).forEach(monthKey => {
+                            const monthData = { ...newPlan[monthKey] };
+                            let monthChanged = false;
+                            Object.keys(monthData).forEach(dayKey => {
+                                const dayData = { ...monthData[dayKey] };
+                                if (dayData[oldName] !== undefined) { dayData[newName] = dayData[oldName]; delete dayData[oldName]; monthData[dayKey] = dayData; monthChanged = true; }
+                            });
+                            if (monthChanged) newPlan[monthKey] = monthData;
+                        });
+                        return newPlan;
+                    });
+                    setPromptConfig({ ...promptConfig, show: false });
+                };
+                setPromptConfig({ show: true, title, initialValue, onConfirm: wrappedAction });
+            };
+            const handleConfirmAction = () => { if (modalConfig.onConfirm) modalConfig.onConfirm(); setModalConfig({ show: false, message: '', onConfirm: null }); };
+            
+            const handleShowHelp = () => {
+                const content = (
+                    <div className="space-y-4 text-sm text-slate-600">
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <h4 className="font-bold text-blue-800 mb-2">🚀 Tutorial Rápido</h4>
+                            <ul className="list-disc ml-4 space-y-1">
+                                <li><strong>Inicio:</strong> Ve tu saldo actual, progreso de ahorro y análisis de gastos.</li>
+                                <li><strong>Plan:</strong> Define cuánto puedes gastar. Usa "Repetir" para gastos diarios (ej. pasajes) y "Único" para eventos puntuales.</li>
+                                <li><strong>Agregar (botón +):</strong> Registra tus gastos o ingresos al momento.</li>
+                                <li><strong>Movim.:</strong> Revisa y elimina transacciones pasadas.</li>
+                                <li><strong>Ajustes:</strong> Configura tus saldos iniciales, categorías y haz copias de seguridad.</li>
+                            </ul>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                            <h4 className="font-bold text-slate-800 mb-2">❓ Preguntas Frecuentes</h4>
+                            <details className="mb-2">
+                                <summary className="font-semibold cursor-pointer text-slate-700">¿Dónde se guardan mis datos?</summary>
+                                <p className="mt-1 pl-4 text-xs">Se guardan en la memoria interna de tu navegador (localStorage). No se comparten con nadie.</p>
+                            </details>
+                            <details className="mb-2">
+                                <summary className="font-semibold cursor-pointer text-slate-700">¿Si cambio de celular pierdo todo?</summary>
+                                <p className="mt-1 pl-4 text-xs">Sí, a menos que uses la opción "Exportar Backup" en Ajustes y pases el archivo .finat a tu nuevo celular.</p>
+                            </details>
+                             <details>
+                                <summary className="font-semibold cursor-pointer text-slate-700">¿Cómo funciona la Meta de Ahorro?</summary>
+                                <p className="mt-1 pl-4 text-xs">Define un monto en Ajustes. La barra de progreso se llenará según el saldo de tu cuenta de ahorros.</p>
+                            </details>
+                        </div>
+                    </div>
+                );
+                setInfoModalConfig({ show: true, title: "Centro de Ayuda", content });
+            };
+
+            const handleShowAbout = () => {
+                 const content = (
+                    <div className="text-center space-y-4">
+                        <div className="flex justify-center mb-4">
+                           <div className="p-4 bg-blue-100 rounded-full text-blue-600"><Atom size={48} /></div>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">Finanzas Atómicas</h3>
+                            <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">Versión 0.1.1 (Beta)</span>
+                        </div>
+                        <div className="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p className="mb-2">Desarrollado con ❤️ para ayudarte a construir hábitos financieros sólidos.</p>
+                            <div className="border-t border-slate-200 my-3"></div>
+                            <p className="font-bold text-slate-800">Autor:</p>
+                            <p>Noe Zelaya</p>
+                            <p className="text-xs text-slate-400">Lima, Perú</p>
+                            <p className="mt-2 font-bold text-slate-800">Contacto:</p>
+                            <a href="mailto:nzelayam@uni.pe" className="text-blue-600 hover:underline">nzelayam@uni.pe</a>
+                            <p className="mt-4 text-xs text-slate-400">Última actualización: 02 de enero del 2026</p>
+                        </div>
+                    </div>
+                );
+                setInfoModalConfig({ show: true, title: "Acerca de", content });
+            };
+
+            const handleExport = () => {
+                const data = {
+                    transacciones,
+                    planMensual,
+                    saldosIniciales,
+                    categoriasGastos,
+                    categoriasIngresos,
+                    pais,
+                    moneda,
+                    metaAhorro
+                };
+                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup_finanzas_${new Date().toISOString().split('T')[0]}.finat`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showNotification("Backup exportado correctamente");
+            };
+
+            const handleImport = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if(confirm("Esto reemplazará todos tus datos actuales. ¿Estás seguro?")) {
+                            if(data.transacciones) setTransacciones(data.transacciones);
+                            if(data.planMensual) setPlanMensual(data.planMensual);
+                            if(data.saldosIniciales) setSaldosIniciales(data.saldosIniciales);
+                            if(data.categoriasGastos) setCategoriasGastos(data.categoriasGastos);
+                            if(data.categoriasIngresos) setCategoriasIngresos(data.categoriasIngresos);
+                            if(data.pais) setPais(data.pais);
+                            if(data.moneda) setMoneda(data.moneda);
+                            if(data.metaAhorro) setMetaAhorro(data.metaAhorro);
+                            showNotification("Datos restaurados correctamente");
+                        }
+                    } catch (err) {
+                        showNotification("Error al importar el archivo", "error");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            const resumen = useMemo(() => {
+                const currentMonth = new Date().toISOString().slice(0, 7);
+                let saldoNormal = saldosIniciales.normal;
+                let saldoAhorro = saldosIniciales.ahorro;
+                let ingresosMes = 0;
+                let gastosMes = 0;
+                let ahorroMes = 0;
+
+                transacciones.forEach(t => {
+                    const monto = parseFloat(t.monto);
+                    if (t.tipo === 'ingreso') { saldoNormal += monto; if (t.fecha.startsWith(currentMonth)) ingresosMes += monto; } 
+                    else if (t.tipo === 'gasto') { saldoNormal -= monto; if (t.fecha.startsWith(currentMonth)) gastosMes += monto; } 
+                    else if (t.tipo === 'transferencia_ahorro') { saldoNormal -= monto; saldoAhorro += monto; if (t.fecha.startsWith(currentMonth)) ahorroMes += monto; }
+                });
+                return { saldoNormal, saldoAhorro, ingresosMes, gastosMes, ahorroMes };
+            }, [transacciones, saldosIniciales]);
+
+            const datosCurvas = useMemo(() => {
+                const [year, month] = planMesSeleccionado.split('-').map(Number);
+                const diasDelMes = obtenerDiasDelMes(year, month - 1);
+                const planDelMes = planMensual[planMesSeleccionado] || {};
+                let acumuladoPlan = 0;
+                let acumuladoReal = 0;
+                const seriePlan = [];
+                const serieReal = [];
+                const hoy = new Date();
+                const esMesActual = hoy.getFullYear() === year && hoy.getMonth() === month - 1;
+                const diaActual = hoy.getDate();
+
+                diasDelMes.forEach(date => {
+                    const dateStr = date.toISOString().split('T')[0];
+                    const diaNum = date.getDate();
+                    const planDia = planDelMes[dateStr];
+                    if (planDia) Object.values(planDia).forEach(val => acumuladoPlan += (val || 0));
+                    seriePlan.push(acumuladoPlan);
+                    if (!esMesActual || diaNum <= diaActual) {
+                        transacciones.filter(t => t.fecha === dateStr && t.tipo === 'gasto').forEach(t => acumuladoReal += parseFloat(t.monto));
+                        serieReal.push(acumuladoReal);
+                    }
+                });
+                return { seriePlan, serieReal, dias: diasDelMes.length };
+            }, [planMensual, transacciones, planMesSeleccionado]);
+
+            const handleGuardarTransaccion = (e) => {
+                e.preventDefault();
+                if (!nuevoMonto || !nuevaDesc) return;
+                const nueva = { id: Date.now(), fecha: nuevaFecha, descripcion: nuevaDesc, monto: parseFloat(nuevoMonto), categoria: nuevaCat, tipo: nuevoTipo };
+                setTransacciones([nueva, ...transacciones]);
+                setNuevoMonto(''); setNuevaDesc(''); setNuevaFecha(new Date().toISOString().split('T')[0]);
+                showNotification("Guardado");
+            };
+
+            const handleBorrarTransaccion = (id) => { requestConfirmation("¿Borrar movimiento?", () => { setTransacciones(transacciones.filter(t => t.id !== id)); showNotification("Eliminado"); }); };
+
+            return (
+                <div className="flex flex-col h-full bg-slate-50 font-sans text-slate-900 select-none">
+                    <Toast message={notification.message} show={notification.show} type={notification.type} />
+                    <ConfirmModal show={modalConfig.show} message={modalConfig.message} onConfirm={handleConfirmAction} onCancel={() => setModalConfig({ ...modalConfig, show: false })} />
+                    <PromptModal show={promptConfig.show} title={promptConfig.title} initialValue={promptConfig.initialValue} onConfirm={promptConfig.onConfirm} onCancel={() => setPromptConfig({ ...promptConfig, show: false })} />
+                    <InfoModal show={infoModalConfig.show} title={infoModalConfig.title} content={infoModalConfig.content} onClose={() => setInfoModalConfig({...infoModalConfig, show: false})} />
+
+                    <div className="flex-none bg-white px-4 py-3 shadow-sm flex justify-between items-center border-b border-gray-100 z-10">
+                        <h1 className="font-bold text-lg text-blue-800 tracking-tight flex items-center gap-2"><Atom size={20}/> Finanzas Atómicas</h1>
+                        <div className="text-xs font-medium bg-slate-100 px-2 py-1 rounded text-slate-600">{new Date().toLocaleDateString('es-PE', { month: 'long' }).toUpperCase()}</div>
+                    </div>
+
+                    <main className="flex-1 overflow-y-auto max-w-md mx-auto w-full p-4 md:p-6 bg-slate-50 md:bg-white md:shadow-xl md:my-4 md:rounded-[40px] md:border-8 md:border-slate-800 hide-scrollbar overscroll-contain">
+                        {activeTab === 'resumen' && <VistaResumen resumen={resumen} datosCurvas={datosCurvas} planMesSeleccionado={planMesSeleccionado} onIrAPlan={() => setActiveTab('plan')} planMensual={planMensual} transacciones={transacciones} monedaCfg={moneda} metaAhorro={metaAhorro} />}
+                        {activeTab === 'plan' && <VistaPlanificacion planMesSeleccionado={planMesSeleccionado} setPlanMesSeleccionado={setPlanMesSeleccionado} planMensual={planMensual} setPlanMensual={setPlanMensual} categoriasGastos={categoriasGastos} onShowToast={showNotification} onRequestConfirm={requestConfirmation} pais={pais} monedaCfg={moneda} />}
+                        {activeTab === 'agregar' && <VistaAgregar monto={nuevoMonto} setMonto={setNuevoMonto} desc={nuevaDesc} setDesc={setNuevaDesc} cat={nuevaCat} setCat={setNuevaCat} tipo={nuevoTipo} setTipo={setNuevoTipo} fecha={nuevaFecha} setFecha={setNuevaFecha} categoriasGastos={categoriasGastos} categoriasIngresos={categoriasIngresos} onGuardar={handleGuardarTransaccion} monedaCfg={moneda} historialSugerencias={historialSugerencias} />}
+                        {activeTab === 'historial' && <VistaHistorial transacciones={transacciones} onBorrar={handleBorrarTransaccion} monedaCfg={moneda} />}
+                        {activeTab === 'ajustes' && <VistaAjustes categoriasGastos={categoriasGastos} setCategoriasGastos={setCategoriasGastos} categoriasIngresos={categoriasIngresos} setCategoriasIngresos={setCategoriasIngresos} saldos={saldosIniciales} setSaldos={setSaldosIniciales} pais={pais} setPais={setPais} moneda={moneda} setMoneda={setMoneda} metaAhorro={metaAhorro} setMetaAhorro={setMetaAhorro} onRequestConfirm={requestConfirmation} onRequestRename={requestRename} onShowToast={showNotification} onImport={handleImport} onExport={handleExport} onShowHelp={handleShowHelp} onShowAbout={handleShowAbout} />}
+                    </main>
+
+                    <nav className="flex-none bg-white border-t border-gray-200 z-10 pb-safe md:rounded-b-[32px] md:max-w-md md:mx-auto md:w-full">
+                        <div className="flex justify-around items-center h-16">
+                            <button onClick={() => setActiveTab('resumen')} className={`nav-btn flex flex-col items-center justify-center w-full h-full ${activeTab === 'resumen' ? 'text-blue-600' : 'text-slate-400'}`}><Home size={22} strokeWidth={activeTab === 'resumen' ? 2.5 : 2} /><span className="text-[10px] mt-1 font-medium">Inicio</span></button>
+                            <button onClick={() => setActiveTab('plan')} className={`nav-btn flex flex-col items-center justify-center w-full h-full ${activeTab === 'plan' ? 'text-blue-600' : 'text-slate-400'}`}><CalendarIcon size={22} strokeWidth={activeTab === 'plan' ? 2.5 : 2} /><span className="text-[10px] mt-1 font-medium">Plan</span></button>
+                            <div className="relative -top-6"><button onClick={() => setActiveTab('agregar')} className="bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-600/30 transform transition-transform active:scale-95"><PlusCircle size={28} /></button></div>
+                            <button onClick={() => setActiveTab('historial')} className={`nav-btn flex flex-col items-center justify-center w-full h-full ${activeTab === 'historial' ? 'text-blue-600' : 'text-slate-400'}`}><List size={22} strokeWidth={activeTab === 'historial' ? 2.5 : 2} /><span className="text-[10px] mt-1 font-medium">Movim.</span></button>
+                            <button onClick={() => setActiveTab('ajustes')} className={`nav-btn flex flex-col items-center justify-center w-full h-full ${activeTab === 'ajustes' ? 'text-blue-600' : 'text-slate-400'}`}><Settings size={22} strokeWidth={activeTab === 'ajustes' ? 2.5 : 2} /><span className="text-[10px] mt-1 font-medium">Ajustes</span></button>
+                        </div>
+                    </nav>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        window.addEventListener('load', () => {
+            root.render(<App />);
+        });
+    </script>
+</body>
+</html>
