@@ -584,8 +584,9 @@
                 return { lista, totalDesvio, totalRestante };
             }, [planMensual, transacciones, planMesSeleccionado]);
 
-            // Nombre del mes para mostrar
-            const nombreMes = new Date(planMesSeleccionado + '-01').toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+            // Nombre del mes para mostrar (parseando manualmente para evitar problemas de zona horaria)
+            const [anioMes, mesMes] = planMesSeleccionado.split('-').map(Number);
+            const nombreMes = new Date(anioMes, mesMes - 1, 1).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
 
             return (
                 <div className="space-y-6 pb-24">
