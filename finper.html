@@ -383,13 +383,113 @@
             );
         };
 
+        const GraficoBarrasComparativo = ({ datos, monedaCfg }) => {
+            const [seleccionado, setSeleccionado] = useState(null);
+
+            if (!datos || datos.length === 0) return (
+                <div className="h-32 flex items-center justify-center text-slate-400 bg-slate-50 rounded-lg text-sm italic">
+                    Sin datos de planificación para este mes
+                </div>
+            );
+
+            // Ordenar por mayor desviación (sobregiros primero)
+            const datosOrdenados = [...datos].sort((a, b) => a.desvio - b.desvio);
+            const maxValor = Math.max(...datos.map(d => Math.max(d.planificado, d.gastado)));
+
+            const handleClick = (idx) => {
+                setSeleccionado(seleccionado === idx ? null : idx);
+            };
+
+            return (
+                <div className="space-y-2">
+                    <p className="text-[10px] text-slate-400 text-center mb-3">Ordenado por mayor desviación • Toca para ver detalles</p>
+                    {datosOrdenados.map((item, idx) => {
+                        const porcPlan = maxValor > 0 ? (item.planificado / maxValor) * 100 : 0;
+                        const porcGasto = maxValor > 0 ? (item.gastado / maxValor) * 100 : 0;
+                        const esExceso = item.gastado > item.planificado;
+                        const isSelected = seleccionado === idx;
+
+                        return (
+                            <div
+                                key={item.categoria}
+                                onClick={() => handleClick(idx)}
+                                className={`cursor-pointer transition-all duration-300 rounded-lg ${isSelected ? 'bg-slate-100 p-3 shadow-sm' : 'p-2 hover:bg-slate-50'}`}
+                            >
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className={`text-xs font-medium truncate flex-1 ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>
+                                        {item.categoria}
+                                    </span>
+                                    <span className={`text-xs font-bold ml-2 px-1.5 py-0.5 rounded ${esExceso ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                        {esExceso ? '+' : ''}{Math.round(item.gastado - item.planificado)}
+                                    </span>
+                                </div>
+
+                                {/* Barras */}
+                                <div className="space-y-1">
+                                    {/* Barra planificado */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[9px] text-slate-400 w-8">Plan</span>
+                                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-slate-300 rounded-full transition-all duration-500"
+                                                style={{ width: `${porcPlan}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {/* Barra gastado */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[9px] text-slate-400 w-8">Real</span>
+                                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-500 ${esExceso ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                                                style={{ width: `${porcGasto}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Detalle expandido */}
+                                {isSelected && (
+                                    <div className="mt-3 pt-3 border-t border-slate-200 grid grid-cols-3 gap-2 text-center animate-in">
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 uppercase">Planificado</p>
+                                            <p className="text-sm font-bold text-slate-600">{monedaCfg.simbolo}{Math.round(item.planificado)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 uppercase">Gastado</p>
+                                            <p className={`text-sm font-bold ${esExceso ? 'text-rose-600' : 'text-emerald-600'}`}>{monedaCfg.simbolo}{Math.round(item.gastado)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 uppercase">Diferencia</p>
+                                            <p className={`text-sm font-bold ${esExceso ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                {esExceso ? '+' : '-'}{monedaCfg.simbolo}{Math.abs(Math.round(item.gastado - item.planificado))}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        };
+
         // --- VISTAS ---
 
-        const VistaResumen = ({ resumen, datosCurvas, planMesSeleccionado, onIrAPlan, planMensual, transacciones, monedaCfg, metaAhorro }) => {
-            const [mesGraficoCircular, setMesGraficoCircular] = useState(new Date().toISOString().slice(0, 7));
+        const VistaResumen = ({ resumen, datosCurvas, planMesSeleccionado, setPlanMesSeleccionado, onIrAPlan, planMensual, transacciones, monedaCfg, metaAhorro }) => {
+            // Función para cambiar el mes (selector único para todos los gráficos)
+            const cambiarMes = (direccion) => {
+                const [year, month] = planMesSeleccionado.split('-').map(Number);
+                let nuevoMes = month + direccion;
+                let nuevoYear = year;
+                if (nuevoMes < 1) { nuevoMes = 12; nuevoYear--; }
+                if (nuevoMes > 12) { nuevoMes = 1; nuevoYear++; }
+                setPlanMesSeleccionado(`${nuevoYear}-${nuevoMes.toString().padStart(2, '0')}`);
+            };
 
+            // Gastos por categoría para gráfico circular
             const gastosPorCategoria = useMemo(() => {
-                const gastosMes = transacciones.filter(t => t.fecha.startsWith(mesGraficoCircular) && t.tipo === 'gasto');
+                const gastosMes = transacciones.filter(t => t.fecha.startsWith(planMesSeleccionado) && t.tipo === 'gasto');
                 const porCategoria = {};
                 gastosMes.forEach(t => {
                     if (!porCategoria[t.categoria]) porCategoria[t.categoria] = 0;
@@ -398,17 +498,43 @@
                 return Object.entries(porCategoria)
                     .map(([categoria, monto]) => ({ categoria, monto }))
                     .sort((a, b) => b.monto - a.monto);
-            }, [transacciones, mesGraficoCircular]);
+            }, [transacciones, planMesSeleccionado]);
 
-            const cambiarMesGrafico = (direccion) => {
-                const [year, month] = mesGraficoCircular.split('-').map(Number);
-                let nuevoMes = month + direccion;
-                let nuevoYear = year;
-                if (nuevoMes < 1) { nuevoMes = 12; nuevoYear--; }
-                if (nuevoMes > 12) { nuevoMes = 1; nuevoYear++; }
-                setMesGraficoCircular(`${nuevoYear}-${nuevoMes.toString().padStart(2, '0')}`);
-            };
+            // Datos para gráfico de barras comparativo (Plan vs Real por categoría)
+            const datosComparativo = useMemo(() => {
+                const planDelMes = planMensual[planMesSeleccionado] || {};
+                const categorias = new Set();
+                const dataCat = {};
 
+                // Sumar planificado total por categoría
+                Object.entries(planDelMes).forEach(([fechaStr, diaData]) => {
+                    Object.entries(diaData).forEach(([cat, monto]) => {
+                        categorias.add(cat);
+                        if (!dataCat[cat]) dataCat[cat] = { planificado: 0, gastado: 0 };
+                        dataCat[cat].planificado += monto;
+                    });
+                });
+
+                // Sumar gastado real por categoría
+                transacciones
+                    .filter(t => t.fecha.startsWith(planMesSeleccionado) && t.tipo === 'gasto')
+                    .forEach(t => {
+                        categorias.add(t.categoria);
+                        if (!dataCat[t.categoria]) dataCat[t.categoria] = { planificado: 0, gastado: 0 };
+                        dataCat[t.categoria].gastado += parseFloat(t.monto);
+                    });
+
+                return Array.from(categorias)
+                    .filter(cat => dataCat[cat].planificado > 0 || dataCat[cat].gastado > 0)
+                    .map(cat => ({
+                        categoria: cat,
+                        planificado: dataCat[cat].planificado,
+                        gastado: dataCat[cat].gastado,
+                        desvio: dataCat[cat].planificado - dataCat[cat].gastado
+                    }));
+            }, [planMensual, transacciones, planMesSeleccionado]);
+
+            // Análisis detallado para tabla
             const analisis = useMemo(() => {
                 const planDelMes = planMensual[planMesSeleccionado] || {};
                 const categorias = new Set();
@@ -442,15 +568,15 @@
 
                 const lista = Array.from(categorias).map(cat => {
                     const d = dataCat[cat];
-                    return { 
-                        categoria: cat, 
+                    return {
+                        categoria: cat,
                         planTotal: d.planTotal,
                         planHoy: d.planHoy,
                         realHoy: d.realHoy,
                         desvioHoy: d.planHoy - d.realHoy,
                         restanteMes: d.planTotal - d.realHoy
                     };
-                }).sort((a, b) => b.realHoy - a.realHoy);
+                }).sort((a, b) => a.desvioHoy - b.desvioHoy); // Ordenar por desvío (sobregiros primero)
 
                 const totalDesvio = lista.reduce((acc, curr) => acc + curr.desvioHoy, 0);
                 const totalRestante = lista.reduce((acc, curr) => acc + curr.restanteMes, 0);
@@ -458,8 +584,12 @@
                 return { lista, totalDesvio, totalRestante };
             }, [planMensual, transacciones, planMesSeleccionado]);
 
+            // Nombre del mes para mostrar
+            const nombreMes = new Date(planMesSeleccionado + '-01').toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+
             return (
                 <div className="space-y-6 pb-24">
+                    {/* Cards de saldos */}
                     <div className="grid gap-4">
                         <div className="bg-gradient-to-br from-blue-800 to-blue-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
                             <div className="relative z-10">
@@ -489,6 +619,7 @@
                         </div>
                     </div>
 
+                    {/* Meta de ahorro */}
                     {metaAhorro && metaAhorro.nombre && (
                         <Card className="border-l-4 border-l-sky-500">
                             <div className="flex justify-between items-end mb-2">
@@ -509,30 +640,25 @@
                         </Card>
                     )}
 
-                    <Card>
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                <Target className="text-rose-500" size={20}/> Gastos por Categoría
-                            </h3>
-                            <div className="flex items-center gap-1">
-                                <button onClick={() => cambiarMesGrafico(-1)} className="p-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
-                                    <ChevronUp size={16} className="rotate-[-90deg] text-slate-600" />
-                                </button>
-                                <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded min-w-[80px] text-center">{mesGraficoCircular}</span>
-                                <button onClick={() => cambiarMesGrafico(1)} className="p-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
-                                    <ChevronUp size={16} className="rotate-90 text-slate-600" />
-                                </button>
-                            </div>
+                    {/* Selector de mes único */}
+                    <div className="flex items-center justify-center gap-2 py-2">
+                        <button onClick={() => cambiarMes(-1)} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+                            <ChevronUp size={20} className="rotate-[-90deg] text-slate-600" />
+                        </button>
+                        <div className="bg-slate-800 text-white px-4 py-2 rounded-xl min-w-[160px] text-center">
+                            <span className="font-bold capitalize">{nombreMes}</span>
                         </div>
-                        <GraficoCircular datos={gastosPorCategoria} monedaCfg={monedaCfg} />
-                    </Card>
+                        <button onClick={() => cambiarMes(1)} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+                            <ChevronUp size={20} className="rotate-90 text-slate-600" />
+                        </button>
+                    </div>
 
+                    {/* 1. Gráfico de Evolución Mensual */}
                     <Card>
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-slate-800 flex items-center gap-2">
                                 <TrendingUp className="text-blue-600" size={20}/> Evolución Mensual
                             </h3>
-                            <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">{planMesSeleccionado}</span>
                         </div>
                         <GraficoCurvas datosPlan={datosCurvas.seriePlan} datosReal={datosCurvas.serieReal} dias={datosCurvas.dias} />
                         {datosCurvas.seriePlan.length > 0 ? (
@@ -546,12 +672,33 @@
                         )}
                     </Card>
 
+                    {/* 2. Gráfico Circular de Gastos por Categoría */}
+                    <Card>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <Target className="text-rose-500" size={20}/> Gastos por Categoría
+                            </h3>
+                        </div>
+                        <GraficoCircular datos={gastosPorCategoria} monedaCfg={monedaCfg} />
+                    </Card>
+
+                    {/* 3. Gráfico de Barras Comparativo (Plan vs Real) */}
+                    <Card>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <List className="text-amber-500" size={20}/> Plan vs Real
+                            </h3>
+                        </div>
+                        <GraficoBarrasComparativo datos={datosComparativo} monedaCfg={monedaCfg} />
+                    </Card>
+
+                    {/* 4. Tabla de Análisis al Día */}
                     {analisis.lista.length > 0 && (
                         <div className="space-y-3">
                             <div className="flex justify-between items-end px-1">
                                 <h3 className="font-bold text-slate-800">Análisis al Día</h3>
                                 <span className={`text-xs font-bold px-2 py-1 rounded ${analisis.totalDesvio < 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                    {analisis.totalDesvio < 0 ? 'Sobregiro Global: ' : 'A favor Global: '} 
+                                    {analisis.totalDesvio < 0 ? 'Sobregiro Global: ' : 'A favor Global: '}
                                     {formatearDinero(Math.abs(analisis.totalDesvio), monedaCfg)}
                                 </span>
                             </div>
@@ -1440,7 +1587,7 @@
                     </div>
 
                     <main className="flex-1 overflow-y-auto max-w-md mx-auto w-full p-4 md:p-6 bg-slate-50 md:bg-white md:shadow-xl md:my-4 md:rounded-[40px] md:border-8 md:border-slate-800 hide-scrollbar overscroll-contain">
-                        {activeTab === 'resumen' && <VistaResumen resumen={resumen} datosCurvas={datosCurvas} planMesSeleccionado={planMesSeleccionado} onIrAPlan={() => setActiveTab('plan')} planMensual={planMensual} transacciones={transacciones} monedaCfg={moneda} metaAhorro={metaAhorro} />}
+                        {activeTab === 'resumen' && <VistaResumen resumen={resumen} datosCurvas={datosCurvas} planMesSeleccionado={planMesSeleccionado} setPlanMesSeleccionado={setPlanMesSeleccionado} onIrAPlan={() => setActiveTab('plan')} planMensual={planMensual} transacciones={transacciones} monedaCfg={moneda} metaAhorro={metaAhorro} />}
                         {activeTab === 'plan' && <VistaPlanificacion planMesSeleccionado={planMesSeleccionado} setPlanMesSeleccionado={setPlanMesSeleccionado} planMensual={planMensual} setPlanMensual={setPlanMensual} categoriasGastos={categoriasGastos} onShowToast={showNotification} onRequestConfirm={requestConfirmation} pais={pais} monedaCfg={moneda} />}
                         {activeTab === 'agregar' && <VistaAgregar monto={nuevoMonto} setMonto={setNuevoMonto} desc={nuevaDesc} setDesc={setNuevaDesc} cat={nuevaCat} setCat={setNuevaCat} tipo={nuevoTipo} setTipo={setNuevoTipo} fecha={nuevaFecha} setFecha={setNuevaFecha} categoriasGastos={categoriasGastos} categoriasIngresos={categoriasIngresos} onGuardar={handleGuardarTransaccion} monedaCfg={moneda} historialSugerencias={historialSugerencias} />}
                         {activeTab === 'historial' && <VistaHistorial transacciones={transacciones} onBorrar={handleBorrarTransaccion} onEditar={handleEditarTransaccion} monedaCfg={moneda} categoriasGastos={categoriasGastos} categoriasIngresos={categoriasIngresos} />}
